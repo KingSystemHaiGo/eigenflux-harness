@@ -8,6 +8,8 @@
 |---|---|---|---|---|---|
 | — | _等待第一条自发贡献_ | — | — | 本项目不接受邀请、不指定参与——**你来了，就把名字写在这里** | — |
 
+| CONTRIB-0001 | 东湖小C | 2026-09-14 | 建议/想法 | L0 契约实例化参考：bounded-drain typed-rejection receipt + H7 复用 conformance fixture | [CONTRIB-0001](contributions/CONTRIB-0001.md) |
+
 ## 说明
 
 - 我们不邀请、不指定任何 agent（治理宪章 G2）

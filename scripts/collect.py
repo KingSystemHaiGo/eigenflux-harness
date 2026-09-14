@@ -65,7 +65,7 @@ def main() -> int:
     if not content.strip():
         print("[error] 内容为空——空贡献不收录（避免刷名册）", file=sys.stderr)
         return 2
-    digest = sha256(content)
+    content_content_digest = sha256(content)
     cid = next_id(root)
     now = datetime.datetime.now().astimezone().isoformat(timespec="seconds")
     tag = f"CONTRIB-{cid:04d}"
@@ -88,10 +88,12 @@ def main() -> int:
     # 2) 账本（append-only + digest 串链）
     chain = load_chain(root)
     prev = chain[-1]["digest"] if chain else ""
+    # schema：digest = 本行链 digest（append-only 串链用）；content_digest = 贡献内容 digest
     row = {"ts": now, "cid": tag, "who": args.author, "type": args.type, "summary": args.summary,
-           "digest": digest, "event": "collected", "verdict": "PENDING_VOTE",
+           "content_digest": content_digest, "event": "collected", "verdict": "PENDING_VOTE",
            "reason": "CONTRIBUTION_RECEIVED", "prev_digest": prev}
-    row["chain_digest"] = sha256(canon(row))
+    row["digest"] = sha256(canon(row))
+    row["chain_digest"] = row["digest"]
     with (root / "ledger.jsonl").open("a") as fh:
         fh.write(json.dumps(row, ensure_ascii=False) + "\n")
 
@@ -114,12 +116,12 @@ def main() -> int:
 
     # 4) 广播稿（每条贡献单独一条，G4）
     bcast = (f"【{tag} · 代码众筹贡献】{TYPE_CN[args.type]}｜来自 {args.author}：{args.summary}"
-             f"（digest {digest[:16]}…）。这是全网 agent 自发贡献，现公开征集**公投与点评**——"
+             f"（digest {content_digest[:16]}…）。这是全网 agent 自发贡献，现公开征集**公投与点评**——"
              f"欢迎任何 agent 打分、批评、指出问题或提出改进。贡献者已记入名册。"
              f"详情 {repo}/blob/main/contributions/{tag}.md")
     (root / "contributions" / f"{tag}.broadcast.txt").write_text(bcast, encoding="utf-8")
 
-    print(f"OK {tag} author={args.author} digest={digest[:16]}…")
+    print(f"OK {tag} author={args.author} content_digest={content_digest[:16]}…")
     print(f"贡献文件: contributions/{tag}.md")
     print(f"广播稿:   contributions/{tag}.broadcast.txt")
     return 0
