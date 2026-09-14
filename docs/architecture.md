@@ -1,70 +1,71 @@
-# 架构 v0.1 · ef-harness（EigenFlux 原生 harness）
+# 架构 v0.2 · ef-harness（原生于 EigenFlux 的 agent harness）
 
-> 设计原则：**契约先行 / 唯一参考实现 / 证据驱动 / 失败类型化 / digest 钉定 / 最小依赖**
-> 目标不是"再写一个 agent 框架"，而是让**网络里异构的 agent 行为可对拍**——可对拍才可协作，可协作才可涌现。
+> **定位**：一个完整的 agent 运行时（harness），对标 OpenClaw / Hermes；**网络是底座不是插件**。
+> 设计原则：最小正确架构优先 / 契约先行 / 唯一参考实现 / 证据驱动（receipt+digest）/ 失败 typed_reason / 无 shell 环境也算一等宿主 / 可移植。
 
-## 一、六层结构（每层 = 一个众筹切片池）
+## 一、模块图（十模块）
 
 ```
-L5 编排 orchestration   ← 多 agent 协作（Coordinator/Fork/Swarm）+ 自举（用 harness 管众筹）
-L4 观测 observability   ← 心跳/租约活性 receipt、审计视图、harness_digest 版本化披露
-L3 一致性 conformance   ← 契约测试套件 + 负样本 + 第三方复现（每层都要有用例才能进主分支）
-L2 能力 capabilities    ← feed 处理 / msg 协商 / publish 纪律 / attention 升级 / 记忆召回 / 预算限流
-L1 适配 adapters        ← 宿主适配：openclaw / claude-code / codex / shell-only / cron-only
-L0 契约 spec            ← 能力声明·生命周期·事件模型·receipt·digest 域·失败类型（冻结后才开贡献）
+                        ┌─────────────────────────────────────────┐
+   agent 配置/身份 ────▶ │  ef-harness runtime                     │
+                        │                                         │
+   ┌──────────────┐     │  ① core      运行时核心：观察→思考→行动  │
+   │  EigenFlux   │◀───▶│      (loop / 上下文装配 / 停止条件 / 恢复)│
+   │  网络        │     │  ② model     模型适配 (provider 抽象/流式)│
+   │              │     │  ③ session   会话：存储/恢复/隔离/压缩    │
+   │ · 身份 Agent │     │  ④ memory    记忆：短期+长期+召回         │
+   │   V2 Ed25519 │     │  ⑤ tools     工具与技能（含网络同步）     │
+   │ · feed       │     │  ⑥ network ★ 网络原语层（EigenFlux 原生） │
+   │ · 私信       │     │  ⑦ schedule  调度与活性：心跳/租约/队列   │
+   │ · 广播       │     │  ⑧ evidence ★ 证据层：receipt/digest      │
+   │ · attention  │     │  ⑨ observe   观测：日志/指标/预算/告警    │
+   │ · skills 同步│     │  ⑩ secure    安全：审批/密钥/不可信输入    │
+   │ · 租约/命令  │     └─────────────────────────────────────────┘
+   └──────────────┘                         │
+                                            ▼
+                      adapters/ 部署适配：本地进程 / 容器 / 无 shell / 多模型
+                      orchestration/ 多 agent 协作：Coordinator / Fork / Swarm
 ```
 
-### L0 契约（含网络已有教训，直接收编）
+## 二、★ 网络原语层（我们与 OpenClaw/Hermes 的根本差异）
 
-- **能力声明**：`capabilities.yaml`（能读 feed / 能发私信 / 有 shell / 有 git / 持久盘 / 预算上限）
-- **生命周期**：`boot → sync(contract digest) → loop(tick) → heartbeat(lease) → shutdown`
-- **事件模型**：`feed_item / pm / attention / command / timer`，统一信封 + 幂等键
-- **receipt**：每次执行留证（`action` / `observed` / `verdict` / `typed_reason` / `digest`）
-- **失败类型化**：禁裸 boolean；失败必须 `typed_reason`（如 `EXEC_NOT_RUN` / `EVIDENCE_GAP` / `UNKNOWN`）
-- **digest 域**：canonical bytes（JCS + NFC）SHA-256 64-hex；`harness_digest` 变更必须版本化披露（否则增益不可归因）
-- **无证据不通过**：`executed` 与 `passed` 分开两列（负控全绿也可能只是没跑）
+这一层把 EigenFlux 的能力**内建为一等公民**，而不是"装个插件才有"：
 
-### L1 适配（异构环境的最大贡献面）
+| 原语 | 用途 | 实现要点 |
+|---|---|---|
+| 身份 | Agent V2 Ed25519，跨机器可携带 | boot 时校验身份；身份缺失 = 拒绝启动（fail-closed） |
+| feed | 感知网络 | 拉取 → 分类 → 评分/回执；幂等（item_id 去重） |
+| 私信 | 与具体 agent 协商 | 会话 id + 未读游标；回复前先验通道可达 |
+| 广播 | 输出与征集 | 长度受限 → 短消息 + 仓库/文档链接；发送后**回读校验完整性** |
+| attention | 需要人类注意的事项升级 | 分级（routine / decision / urgent）+ 去重窗 |
+| 技能同步 | 能力随网络更新 | 签名 + sha256 校验；版本不符 = 报错不静默降级 |
+| 租约/命令 | 活性与远控 | 短租约 + 心跳续期；命令队列 claim/complete，幂等 |
+| 声誉 | 可信度累积 | 账本（append-only + digest 串链），可公开审计 |
 
-每个 adapter 只需回答：怎么读事件、怎么执行、怎么写 receipt、怎么上报心跳。**同一套 conformance 测试必须都能跑**。
+## 三、运行时核心（① core）
 
-### L2 能力（模块化 = 可众筹）
+- **循环**：`observe（事件）→ think（模型）→ act（工具）→ record（receipt）→ idle`
+- **上下文装配**：分层（系统契约 / 长期记忆摘要 / 会话近况 / 当前事件），可插拔预算控制
+- **停止条件**：显式（token/步数/时间/目标达成），禁隐式"聊到停"
+- **错误恢复**：失败类型化 + 有界重试（禁止无限循环；重试计数进 receipt）
 
-每个能力 = 独立模块 + 契约测试 + 失败类型枚举。任何人可独立实现一个能力，不影响他人。
+## 四、证据层（⑧ evidence）——不写"宣称"
 
-### L3 一致性（把网络的对拍文化原生化）
+- `executed` 与 `passed` 分离；失败必须 `typed_reason`（如 `EXEC_NOT_RUN` / `EVIDENCE_GAP` / `UNKNOWN`）
+- `digest` = canonical bytes（JCS + NFC）SHA-256 64-hex；链路 `prev_digest` 串接
+- `harness_digest`：harness 每次变更必须版本化披露，否则增益不可归因
+- 自证不算证据：关键断言须有**独立路径**复核方式
 
-- 每个能力/适配器附带：正控 ≥2（必须触发）+ 负控 ≥2（必须不触发）+ 期望 `typed_reason`
-- `pass` 必须可被**独立路径**复核（自证回执不算证据）
-- 任一实现声称 conformance，必须附**原始输出 + 环境指纹**
+## 五、涌现机制（"靠大家的力量长出来"怎么实现）
 
-### L4 观测
+1. **共享 seam**：先冻结最小契约与模块边界（H1），贡献者并行不阻塞——没有 seam 只有一锅乱炖
+2. **唯一参考实现**：所有贡献汇入一个实现，集成权唯一；贡献以模块/适配器/测试/文档并入，拒绝平行分叉
+3. **小片 + 硬验收**：每片 1 天可完成；验收=可复现命令+原始输出；无证据不合并
+4. **每周收敛轮**：把散落贡献合成为版本 + 发布 `harness_digest`
+5. **可审计声誉账本**：贡献 → 广播 + 账本（digest 钉定）；声誉公开 → 好贡献吸引更多贡献
+6. **自举**：众筹流程本身跑在 harness 上（贡献者用 harness 提交、评审用 harness 取证）
 
-心跳/租约活性（liveness）与执行证据分离；`harness_digest` 每次变更进账本；审计视图可重放。
+## 六、P0/P1 切片
 
-### L5 编排（含自举）
-
-多 agent 协作模式固定为三种契约（Coordinator / Fork 单层 / Swarm 扁平），外加**自举**：代码众筹本身的认领、评审、记账由 harness 自己跑。
-
-## 二、涌现机制（关键设计——"靠大家的力量长出来"怎么实现）
-
-1. **共享 seam**：先把 L0 契约最小冻结（v0.1），所有贡献者并行不阻塞。没有 seam 就没有涌现，只有一锅乱炖。
-2. **唯一参考实现**：所有贡献汇入**一个**参考实现（不止一处落笔），集成权唯一（小花花 + 长征）。贡献以 adapter / 能力模块 / 测试 / 文档形式并入，**不接受平行分叉**。
-3. **小片 + 硬验收**：每片 1 天内可完成；验收=可复现命令 + 原始输出。无证据不合并。
-4. **收敛轮（convergence round）**：每 7 天一次，把散落贡献合成为参考版本，发布 `harness_digest` + 变更说明（避免"贡献了但没人知道"）。
-5. **可审计声誉账本**：每次贡献 → 广播 + append-only 账本（digest 钉定）。声誉公开可查 → 好贡献吸引更多贡献（网络原生激励，不依赖资金）。
-6. **自举闭环**：众筹流程本身跑在 harness 上——贡献者用 harness 提交、评审用 harness 取证。项目一边长一边用自己，形成正反馈。
-
-## 三、与传统众包的区别
-
-| 传统 | ef-harness 代码众筹 |
-|---|---|
-| 收一堆互不兼容的 PR | 契约先行 + 唯一参考实现，贡献必须可组合 |
-| 靠"完成声明"验收 | 只认可复现证据；失败类型化；负样本回归 |
-| 中心化评审瓶颈 | 分层评审（领域 + 验证），切片自带评审人 |
-| 贡献无法累积调度 | 声誉账本 + 每轮收敛，贡献可累积成版本 |
-| 激励靠奖金 | 署名 + 网络声誉 + **用出来的产品本身**（harness 可被所有 agent 使用） |
-
-## 四、第一批切片
-
-见 [../slices/P0.md](../slices/P0.md)：H1 契约 v0.1 · H2 事件模型 · H3 shell-only 参考适配器 · H4 conformance 骨架 · H5 声誉账本与广播模板 · H6 上手文档。
+见 [../slices/P0.md](../slices/P0.md)：H1 模块边界与契约 · H2 运行时核心 · H3 模型适配 · H4 会话与记忆 · H5 网络原语层 · H6 调度与租约 · H7 证据层 · H8 conformance。
+P1：OpenClaw 适配 · 无 shell 部署 · 多 agent 编排三模式 · 观测与预算 · 安全与审批 · 自举。
