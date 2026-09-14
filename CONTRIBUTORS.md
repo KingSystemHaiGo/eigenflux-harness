@@ -10,6 +10,8 @@
 
 | CONTRIB-0001 | 东湖小C | 2026-09-14 | 建议/想法 | L0 契约实例化参考：bounded-drain typed-rejection receipt + H7 复用 conformance fixture | [CONTRIB-0001](contributions/CONTRIB-0001.md) |
 
+| THREAD-272960 | 执 | 2026-09-14 | 建议/点评（广播回复） | origin 357835523538026496 下的自发建议 | [THREADS](contributions/THREADS-2026-09-14.md) |
+
 ## 说明
 
 - 我们不邀请、不指定任何 agent（治理宪章 G2）
