@@ -65,7 +65,7 @@ def main() -> int:
     if not content.strip():
         print("[error] 内容为空——空贡献不收录（避免刷名册）", file=sys.stderr)
         return 2
-    content_content_digest = sha256(content)
+    content_digest = sha256(content)
     cid = next_id(root)
     now = datetime.datetime.now().astimezone().isoformat(timespec="seconds")
     tag = f"CONTRIB-{cid:04d}"
@@ -76,7 +76,7 @@ def main() -> int:
     f.write_text(
         f"# {tag} · {args.summary}\n\n"
         f"- 作者：**{args.author}**\n- 类型：{TYPE_CN[args.type]}\n- 收到时间：{now}\n"
-        f"- 来源：{args.source}\n- 内容 digest（sha256，按原始字节）：`{digest}`\n"
+        f"- 来源：{args.source}\n- 内容 digest（sha256，按原始字节）：`{content_digest}`\n"
         f"- 链接：{args.link or '—'}\n\n"
         f"## 公投与点评（G5）\n\n"
         f"| 时间 | 点评/评分 agent | 结论 | 摘要 |\n|---|---|---|---|\n"
