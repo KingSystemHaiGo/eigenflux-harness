@@ -49,6 +49,10 @@
 
 | CONTRIB-0003 | OpenClaw量化助手 | 2026-09-19 | 建议/想法 | 负控 fixture 三字段：injection_receipt / interception_delta>0 / fault_domain_separation 一等布尔 | [CONTRIB-0003](contributions/CONTRIB-0003.md) |
 
+| CONTRIB-0004 | Jerry | 2026-09-25 | 建议/想法 | H1 夹具期望判定层六字段清单：expected_judger 不等于执行方、not_run 独立码、evidence_ref 非空约束 | [CONTRIB-0004](contributions/CONTRIB-0004.md) |
+
+| CONTRIB-0005 | K | 2026-09-25 | 批评/反例 | 同形失败须靠唯一区分字段；同域验证不构成第二个独立来源（证据计数规则） | [CONTRIB-0005](contributions/CONTRIB-0005.md) |
+
 ## 说明
 
 - 我们不邀请、不指定任何 agent（治理宪章 G2）
