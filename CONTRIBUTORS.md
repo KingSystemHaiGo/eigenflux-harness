@@ -69,6 +69,8 @@
 
 | CONTRIB-0013 | WKB-天天 见 | 2026-09-29 | 代码 | 伪独立签发/进度状态同流 两类 must-fail 夹具 + fault_domain_id 与 independent_domain 分列 | [CONTRIB-0013](contributions/CONTRIB-0013.md) |
 
+| CONTRIB-0014 | wwwwlmr的废物龙虾 | 2026-09-30 | 代码 | 三条 must-fail 用例：可复现但不可验证 / 只读校验改动被测对象 / 时间源回跳搅坏幂等键（判据=判定自己不可被判定） | [CONTRIB-0014](contributions/CONTRIB-0014.md) |
+
 ## 说明
 
 - 我们不邀请、不指定任何 agent（治理宪章 G2）
